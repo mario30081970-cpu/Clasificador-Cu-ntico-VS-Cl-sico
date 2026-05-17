@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Quantum vs Clásica: Juego Drag & Drop | Hardware Cuántico NISQ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* evita selección de texto al arrastrar */
+        }
+
+        body {
+            background: radial-gradient(circle at 10% 20%, #0a0f1c, #03050b);
+            font-family: 'Segoe UI', 'Inter', 'Roboto', system-ui, monospace;
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+            color: #eef5ff;
+        }
+
+        /* contenedor principal */
+        .game-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            backdrop-filter: blur(2px);
+        }
+
+        /* encabezado */
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #91e9ff, #2c7da0);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: #9bb8da;
+            max-width: 700px;
+            margin: 0.8rem auto 0;
+            font-size: 0.95rem;
+            border-left: 3px solid #2c7da0;
+            padding-left: 1rem;
+        }
+
+        /* dos columnas + zona de tarjetas */
+        .zones {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.8rem;
+            margin: 2rem 0 2rem;
+        }
+
+        .destino {
+            flex: 1;
+            min-width: 260px;
+            background: rgba(12, 20, 35, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            border: 1px solid rgba(44, 125, 160, 0.5);
+            padding: 1.2rem;
+            transition: all 0.2s;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+        }
+
+        .destino h2 {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 600;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #2c7da0;
+            padding-bottom: 0.5rem;
+        }
+
+        .destino .badge-count {
+            font-size: 0.8rem;
+            background: #0f212e;
+            border-radius: 40px;
+            padding: 0.2rem 0.7rem;
+            font-weight: normal;
+        }
+
+        .dropzone {
+            min-height: 320px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 1.5rem;
+            padding: 1rem;
+            transition: background 0.2s;
+        }
+
+        .destino[data-dest="classic"] .dropzone {
+            border: 2px dashed #5f8bb3;
+        }
+        .destino[data-dest="quantum"] .dropzone {
+            border: 2px dashed #4aa3c2;
+        }
+
+        /* Zona de tarjetas disponibles */
+        .cards-pool {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 2rem;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border: 1px solid #2a4b6e;
+        }
+
+        .cards-pool h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        /* tarjetas arrastrables */
+        .card {
+            background: linear-gradient(145deg, #19273c, #0e1625);
+            border-radius: 1.2rem;
+            padding: 1rem 1.2rem;
+            width: 200px;
+            cursor: grab;
+            transition: transform 0.1s ease, box-shadow 0.2s;
+            border-left: 6px solid #3b82f6;
+            font-weight: 500;
+            text-align: center;
+            box-shadow: 0 8px 14px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(2px);
+        }
+
+        .card:active {
+            cursor: grabbing;
+        }
+
+        .card.dragging {
+            opacity: 0.4;
+            cursor: grabbing;
+        }
+
+        .card.placed {
+            background: #14273e;
+            border-left-color: #10b981;
+            cursor: default;
+            opacity: 0.9;
+            filter: grayscale(0.1);
+        }
+
+        .card.placed:active {
+            cursor: default;
+        }
+
+        /* Mensaje de feedback */
+        .feedback-area {
+            background: #07111fe0;
+            border-radius: 2rem;
+            padding: 0.9rem 1.5rem;
+            margin: 1.5rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-left: 6px solid #f0b27a;
+        }
+
+        .feedback-text {
+            font-size: 0.9rem;
+            font-family: monospace;
+            color: #ffdfb3;
+        }
+
+        .reset-btn {
+            background: #1f5e7e;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 2rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .reset-btn:hover {
+            background: #2f8bb3;
+            transform: scale(0.97);
+        }
+
+        .score {
+            font-size: 0.85rem;
+            background: #0c1a2b;
+            border-radius: 2rem;
+            padding: 0.3rem 1rem;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            margin-top: 2.5rem;
+            color: #567a9e;
+        }
+
+        @media (max-width: 800px) {
+            .card {
+                width: 170px;
+                font-size: 0.8rem;
+                padding: 0.7rem;
+            }
+            .destino h2 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <h1>⚛️  Clasificador Cuántico vs Clásico  💾</h1>
+        <p>Arrastra cada tarea al contenedor correcto: <strong>Supercomputadora Clásica</strong> o <strong>Procesador Cuántico (Era NISQ)</strong>.<br>
+        Basado en el material "Procesadores Cuánticos Actuales" – Era NISQ, paralelismo masivo y tareas de nicho.</p>
+    </div>
+
+    <!-- Áreas de destino: Clásica y Cuántica -->
+    <div class="zones">
+        <!-- Zona Clásica -->
+        <div class="destino" data-dest="classic" id="destClassic">
+            <h2>🖥️ Supercomputadora Clásica <span class="badge-count">tareas secuenciales / lógica tradicional</span></h2>
+            <div class="dropzone" id="classicDropzone"></div>
+        </div>
+
+        <!-- Zona Cuántica (NISQ) -->
+        <div class="destino" data-dest="quantum" id="destQuantum">
+            <h2>🌀 Procesador Cuántico (Era NISQ) <span class="badge-count">>1000 qubits | paralelismo masivo</span></h2>
+            <div class="dropzone" id="quantumDropzone"></div>
+        </div>
+    </div>
+
+    <!-- Zona de tarjetas disponibles -->
+    <div class="cards-pool">
+        <h3>📦 Tareas por clasificar (arrastra al contenedor adecuado)</h3>
+        <div class="cards-container" id="cardsContainer"></div>
+    </div>
+
+    <div class="feedback-area">
+        <div class="feedback-text" id="feedbackMsg">✨ Arrastra cualquier tarjeta hacia la izquierda o derecha. Si falla, rebotará con explicación.</div>
+        <button class="reset-btn" id="resetGameBtn">⟳ Reiniciar juego</button>
+        <div class="score" id="scoreDisplay">✅ Clasificadas: 0 / 8</div>
+    </div>
+    <footer>
+        ⚛️ Inspirado en "Procesadores Cuánticos Actuales" - Refrigerador de dilución, superposición y entrelazamiento.<br>
+        Las tareas de nicho combinatorio, simulación molecular y factorización (Shor) pertenecen a la computación cuántica.
+    </footer>
+</div>
+
+<script>
+    // ---------- DATOS DE LAS TAREAS (coincidentes con el material N°8) ----------
+    const tareasData = [
+        { id: "task1", nombre: "🌐 Navegar por internet", categoriaCorrecta: "classic", mensajeError: "Las computadoras cuánticas NO aceleran navegación web ni tareas secuenciales. Es un problema clásico." },
+        { id: "task2", nombre: "⚙️ Resolver problemas combinatorios masivos", categoriaCorrecta: "quantum", mensajeError: "¡Correcto sería quantum! La optimización combinatoria masiva es ideal para procesadores cuánticos NISQ." },
+        { id: "task3", nombre: "🗄️ Diseñar una base de datos tradicional", categoriaCorrecta: "classic", mensajeError: "El diseño de bases de datos relacionales es tarea clásica, no aprovecha paralelismo cuántico." },
+        { id: "task4", nombre: "🧪 Simular una molécula química compleja", categoriaCorrecta: "quantum", mensajeError: "Simulación de interacciones moleculares → dominio cuántico (descubrimiento de fármacos, materiales)." },
+        { id: "task5", nombre: "🎬 Editar un video en 4K", categoriaCorrecta: "classic", mensajeError: "Edición multimedia es flujo secuencial, las GPUs clásicas lo resuelven, no la computación cuántica." },
+        { id: "task6", nombre: "🎮 Jugar al Counter-Strike", categoriaCorrecta: "classic", mensajeErrorEspecial: "¡Incorrecto! Las computadoras cuánticas no aceleran tareas secuenciales comunes como jugar videojuegos. Resuelven problemas de nicho masivo." },
+        { id: "task7", nombre: "🔗 Optimizar cadena de suministro global", categoriaCorrecta: "quantum", mensajeError: "Optimización combinatoria a gran escala (logística) → ventaja cuántica." },
+        { id: "task8", nombre: "🔐 Factorizar números grandes (algoritmo de Shor)", categoriaCorrecta: "quantum", mensajeError: "El algoritmo de Shor corre en computadoras cuánticas y amenaza la criptografía clásica." }
+    ];
+
+    // Contador de aciertos
+    let classifiedCount = 0;
+    const totalCards = tareasData.length;
+
+    // Elementos DOM
+    const classicZone = document.getElementById("classicDropzone");
+    const quantumZone = document.getElementById("quantumDropzone");
+    const cardsContainer = document.getElementById("cardsContainer");
+    const feedbackDiv = document.getElementById("feedbackMsg");
+    const scoreSpan = document.getElementById("scoreDisplay");
+    const resetBtn = document.getElementById("resetGameBtn");
+
+    // Almacenar referencias a las tarjetas creadas
+    let cardElements = []; // para reinicio sencillo
+
+    // actualizar marcador
+    function updateScore() {
+        scoreSpan.innerText = `✅ Clasificadas: ${classifiedCount} / ${totalCards}`;
+        if (classifiedCount === totalCards) {
+            feedbackDiv.innerHTML = "🏆 ¡FELICIDADES! Clasificaste todas las tareas correctamente. ¡Dominas la era NISQ! 🎉";
+        }
+    }
+
+    // Mostrar feedback temporal o permanente con auto-borrado después de 3s? pero mantendremos último mensaje
+    function setFeedback(message, isError = true) {
+        feedbackDiv.innerHTML = isError ? `⚠️ ${message}` : `✅ ${message}`;
+        // Si es error, se resalta un poco (lo dejamos por 3 segundos, pero sin borrar el último acierto)
+        if (isError) {
+            setTimeout(() => {
+                if (feedbackDiv.innerHTML.includes("⚠️")) {
+                    // No borramos si ya cambió
+                    if (feedbackDiv.innerHTML === `⚠️ ${message}`) {
+                        feedbackDiv.innerHTML = "✨ Arrastra otra tarea o reinicia el juego.";
+                    }
+                }
+            }, 2800);
+        }
+    }
+
+    // Función que mueve la tarjeta al destino correcto y la desactiva
+    function moveCardToZone(cardElement, targetZoneElement, categoriaDestino) {
+        // Verificar si la tarjeta ya fue colocada (prevención)
+        if (cardElement.getAttribute("data-placed") === "true") return false;
+
+        const taskId = cardElement.getAttribute("data-id");
+        const tarea = tareasData.find(t => t.id === taskId);
+        if (!tarea) return false;
+
+        const categoriaEsperada = tarea.categoriaCorrecta;
+
+        // Validación especial para "Jugar al Counter-Strike" arrastrado a quantum
+        let esCorrecto = (categoriaDestino === categoriaEsperada);
+        let mensajePersonalizado = null;
+
+        if (taskId === "task6" && categoriaDestino === "quantum") {
+            esCorrecto = false;
+            mensajePersonalizado = tarea.mensajeErrorEspecial;
+        }
+
+        if (esCorrecto) {
+            // ✔️ Movimiento correcto: clonar aspecto? mejor mover el nodo
+            // Quitar la tarjeta del contenedor original
+            cardElement.remove();
+            // Deshabilitar drag
+            cardElement.setAttribute("draggable", "false");
+            cardElement.classList.add("placed");
+            cardElement.setAttribute("data-placed", "true");
+            // Añadir al dropzone destino
+            targetZoneElement.appendChild(cardElement);
+            classifiedCount++;
+            updateScore();
+            setFeedback(`✓ Correcto: "${tarea.nombre}" pertenece a ${categoriaDestino === "quantum" ? "Procesador Cuántico" : "Supercomputadora Clásica"}.`, false);
+            return true;
+        } else {
+            // ❌ Error: la tarjeta NO se mueve, se "rebota"
+            let errorMsg = "";
+            if (mensajePersonalizado) {
+                errorMsg = mensajePersonalizado;
+            } else {
+                const categoriaNombre = categoriaDestino === "quantum" ? "Cuántica" : "Clásica";
+                const esperadaNombre = tarea.categoriaCorrecta === "quantum" ? "Cuántica (NISQ)" : "Clásica";
+                errorMsg = `${tarea.nombre} no pertenece a la categoría ${categoriaNombre}. Debería ir a ${esperadaNombre}. ${tarea.mensajeError || "Revisa la teoría."}`;
+            }
+            setFeedback(errorMsg, true);
+            // Rebote visual: efecto temporal
+            cardElement.style.transform = "translateX(10px)";
+            setTimeout(() => { cardElement.style.transform = ""; }, 200);
+            return false;
+        }
+    }
+
+    // ---------- CONFIGURAR DRAG & DROP NATIVO ----------
+    function setupDragAndDrop() {
+        // Hacer que las zonas drop sean receptivas
+        const dropZones = [classicZone, quantumZone];
+        dropZones.forEach(zone => {
+            zone.addEventListener("dragover", (e) => {
+                e.preventDefault();  // necesario para permitir drop
+                e.dataTransfer.dropEffect = "move";
+            });
+
+            zone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                const targetZone = e.currentTarget; // classicDropzone o quantumDropzone
+                const destinoPadre = targetZone.closest(".destino");
+                if (!destinoPadre) return;
+                const categoriaDestino = destinoPadre.getAttribute("data-dest"); // "classic" o "quantum"
+
+                // Recuperar el id de la tarjeta desde dataTransfer
+                const draggedCardId = e.dataTransfer.getData("text/plain");
+                const draggedCard = document.getElementById(draggedCardId);
+                if (!draggedCard) return;
+                // Verificar que la tarjeta aún no haya sido colocada
+                if (draggedCard.getAttribute("data-placed") === "true") {
+                    setFeedback("Esta tarea ya fue clasificada correctamente. Reinicia para volver a intentar.", true);
+                    return;
+                }
+
+                // mover la tarjeta (o intentar)
+                moveCardToZone(draggedCard, targetZone, categoriaDestino);
+            });
+        });
+
+        // Para cada tarjeta, configurar dragstart
+        const allCards = document.querySelectorAll(".card");
+        allCards.forEach(card => {
+            if (card.getAttribute("data-placed") === "true") return;
+            card.setAttribute("draggable", "true");
+            card.addEventListener("dragstart", (e) => {
+                if (card.getAttribute("data-placed") === "true") {
+                    e.preventDefault();
+                    return false;
+                }
+                e.dataTransfer.setData("text/plain", card.id);
+                e.dataTransfer.effectAllowed = "move";
+                card.classList.add("dragging");
+            });
+            card.addEventListener("dragend", (e) => {
+                card.classList.remove("dragging");
+            });
+        });
+    }
+
+    // ---------- CONSTRUIR TARJETAS INICIALES / REINICIO ----------
+    function buildCards() {
+        cardsContainer.innerHTML = "";
+        classicZone.innerHTML = "";
+        quantumZone.innerHTML = "";
+        classifiedCount = 0;
+        updateScore();
+        setFeedback("✨ Juego reiniciado. Arrastra cada tarea a la zona correcta. ¡Recuerda: las cuánticas resuelven problemas de nicho masivo!", false);
+
+        // Crear elementos de tarjeta para cada tarea
+        tareasData.forEach(tarea => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.id = tarea.id;
+            card.setAttribute("data-id", tarea.id);
+            card.setAttribute("data-placed", "false");
+            card.setAttribute("draggable", "true");
+            card.innerText = tarea.nombre;
+            cardsContainer.appendChild(card);
+        });
+
+        // Reasignar eventos después de construirlas
+        attachDragEventsToNewCards();
+    }
+
+    function attachDragEventsToNewCards() {
+        const cards = document.querySelectorAll(".card");
+        cards.forEach(card => {
+            // eliminar event listeners previos si existieran (mediante reemplazo)
+            card.removeEventListener("dragstart", dragStartHandler);
+            card.removeEventListener("dragend", dragEndHandler);
+            card.addEventListener("dragstart", dragStartHandler);
+            card.addEventListener("dragend", dragEndHandler);
+            // asegurar que draggable = true
+            card.setAttribute("draggable", "true");
+        });
+    }
+
+    function dragStartHandler(e) {
+        const card = e.target.closest(".card");
+        if (!card) return;
+        if (card.getAttribute("data-placed") === "true") {
+            e.preventDefault();
+            return false;
+        }
+        e.dataTransfer.setData("text/plain", card.id);
+        e.dataTransfer.effectAllowed = "move";
+        card.classList.add("dragging");
+    }
+
+    function dragEndHandler(e) {
+        const card = e.target.closest(".card");
+        if (card) card.classList.remove("dragging");
+    }
+
+    // Reinicio completo: reconstruir todo desde cero
+    function resetGame() {
+        buildCards();
+        // reconfigurar las zonas (sus eventos ya están activos, no se pierden)
+        // pero debemos asegurar que las tarjetas estén en el pool y los contenedores vacíos
+        // adicionalmente eliminar cualquier tarjeta movida manualmente (ya se vació)
+    }
+
+    // Inicializar
+    function init() {
+        buildCards();
+        // Aseguramos que las zonas de drop tengan sus eventos definidos (una sola vez)
+        if (!window._dropEventsSet) {
+            const dropZones = [classicZone, quantumZone];
+            dropZones.forEach(zone => {
+                zone.addEventListener("dragover", (e) => e.preventDefault());
+                // ya se definió arriba, pero llamamos nuevamente sin duplicados? Usamos flag para no duplicar.
+                // Se define el drop en el mismo lugar, pero usando la misma referencia es seguro
+                // pero evitamos duplicar listener con removeEventListener previo? No importa si se añade múltiples iguales.
+                // Para limpieza, mejor quitamos y volvemos a añadir (solo en init)
+                zone.removeEventListener("drop", zone._dropHandler);
+                const handler = (e) => {
+                    e.preventDefault();
+                    const targetZone = e.currentTarget;
+                    const destinoPadre = targetZone.closest(".destino");
+                    if (!destinoPadre) return;
+                    const categoriaDestino = destinoPadre.getAttribute("data-dest");
+                    const draggedCardId = e.dataTransfer.getData("text/plain");
+                    const draggedCard = document.getElementById(draggedCardId);
+                    if (!draggedCard) return;
+                    if (draggedCard.getAttribute("data-placed") === "true") {
+                        setFeedback("Esta tarea ya fue clasificada correctamente. Reinicia para volver a intentar.", true);
+                        return;
+                    }
+                    moveCardToZone(draggedCard, targetZone, categoriaDestino);
+                };
+                zone.addEventListener("drop", handler);
+                zone._dropHandler = handler;
+            });
+            window._dropEventsSet = true;
+        }
+    }
+
+    // Llamar a init, además botón reset
+    resetBtn.addEventListener("click", () => {
+        resetGame();
+        // forzar reinicio de contadores visuales
+        classifiedCount = 0;
+        updateScore();
+        setFeedback("🔄 Partida reiniciada. Vuelve a clasificar las tareas.", false);
+    });
+
+    init();
+</script>
+</body>
+</html>
